@@ -43,7 +43,7 @@ export class Store<StateT extends object> {
   private readonly listeners = new Map<keyof StateT, Set<Listener>>()
 
   /** 派发批次 */
-  private dispatchBatch = 0
+  private dispatchBatchId = 0
   /** 异步派发暂存数据 */
   private dispatchBatchOptionsMap = new Map<number, DispatchOptions<StateT>>()
 
@@ -65,7 +65,7 @@ export class Store<StateT extends object> {
    * @returns 返回 false 可阻止状态更新
    */
   public beforeDispatch?: (
-    dispatchBatch: number,
+    batchId: number,
     nextState: Partial<StateT>,
     options?: DispatchOptions<StateT>
   ) => boolean | Partial<StateT>
@@ -117,10 +117,10 @@ export class Store<StateT extends object> {
       Object.assign(optionsH, options)
     }
 
-    this.dispatchBatch++
+    this.dispatchBatchId++
 
     if (this.beforeDispatch) {
-      const res = this.beforeDispatch(this.dispatchBatch, nextState, optionsH)
+      const res = this.beforeDispatch(this.dispatchBatchId, nextState, optionsH)
       if (res === false) return
       if (typeof res === 'object') Object.assign(nextState, res)
     }
@@ -143,24 +143,24 @@ export class Store<StateT extends object> {
     this.state = { ...this.state, ...changedState }
 
     if (this.takeOverDispatch) {
-      this.dispatchBatchOptionsMap.set(this.dispatchBatch, optionsH)
+      this.dispatchBatchOptionsMap.set(this.dispatchBatchId, optionsH)
     } else {
-      this.executeListeners(this.dispatchBatch, changedState, optionsH)
+      this.executeListeners(this.dispatchBatchId, changedState, optionsH)
     }
   }
 
   /**
    * 调用触发器
    *
-   * @param dispatchBatch
+   * @param batchId
    * @param changedState
    * @param options
    */
-  public executeListeners = (dispatchBatch: number, changedState: Partial<StateT>, options?: DispatchOptions<StateT>) => {
+  public executeListeners = (batchId: number, changedState: Partial<StateT>, options?: DispatchOptions<StateT>) => {
     let optionsH = options
 
     if (!optionsH) {
-      optionsH = this.dispatchBatchOptionsMap.get(dispatchBatch)
+      optionsH = this.dispatchBatchOptionsMap.get(batchId)
     }
 
     for (const realChangeKey in changedState) {
@@ -180,11 +180,11 @@ export class Store<StateT extends object> {
     if (optionsH) {
       optionsH.onChanged?.(this.state)
     } else {
-      console.warn(`dispatchBatch<${dispatchBatch}> error: can't find options`)
+      console.warn(`dispatchBatch<${batchId}> error: can't find options`)
     }
 
-    if (this.dispatchBatchOptionsMap.has(dispatchBatch)) {
-      this.dispatchBatchOptionsMap.delete(dispatchBatch)
+    if (this.dispatchBatchOptionsMap.has(batchId)) {
+      this.dispatchBatchOptionsMap.delete(batchId)
     }
 
     this.afterDispatch?.(changedState)
