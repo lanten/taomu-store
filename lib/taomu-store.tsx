@@ -161,7 +161,6 @@ export class Store<StateT extends object> {
 
     if (!optionsH) {
       optionsH = this.dispatchBatchOptionsMap.get(dispatchBatch)
-      this.dispatchBatchOptionsMap.delete(dispatchBatch)
     }
 
     for (const realChangeKey in changedState) {
@@ -182,6 +181,10 @@ export class Store<StateT extends object> {
       optionsH.onChanged?.(this.state)
     } else {
       console.warn(`dispatchBatch<${dispatchBatch}> error: can't find options`)
+    }
+
+    if (this.dispatchBatchOptionsMap.has(dispatchBatch)) {
+      this.dispatchBatchOptionsMap.delete(dispatchBatch)
     }
 
     this.afterDispatch?.(changedState)
