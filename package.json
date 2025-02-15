@@ -1,6 +1,6 @@
 {
   "name": "taomu-store",
-  "version": "0.0.3",
+  "version": "0.0.4",
   "private": false,
   "type": "module",
   "main": "./dist/index.js",
@@ -20,7 +20,7 @@
     "build": "node ./scripts/rm-dist.js && tsc"
   },
   "peerDependencies": {
-    "react": "^18.0.0"
+    "react": ">=18"
   },
   "devDependencies": {
     "@types/node": "^22.13.4",
