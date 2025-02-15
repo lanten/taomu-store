@@ -188,6 +188,15 @@ export class Store<StateT extends object> {
     this.afterDispatch?.(changedState)
   }
 
+  /**
+   * 静态更新 state
+   *
+   * @param nextState
+   */
+  public staticUpdateState = (nextState: Partial<StateT>) => {
+    Object.assign(this.state, nextState)
+  }
+
   /** Store.dispatch 别名 */
   public readonly setState = this.dispatch
 
