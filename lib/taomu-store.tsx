@@ -35,12 +35,47 @@ export class Store<StateT extends object> {
     private actions?: StoreActions<StateT>
   ) {}
 
-  private readonly defaultDispatchOptions: DispatchOptions<StateT> = {
+  public readonly defaultDispatchOptions: DispatchOptions<StateT> = {
     check: false,
   }
 
   /** 订阅列表 */
   private readonly listeners = new Map<keyof StateT, Set<Listener>>()
+
+  /** 派发批次 */
+  private dispatchBatch = 0
+  /** 异步派发暂存数据 */
+  private dispatchBatchOptionsMap = new Map<number, DispatchOptions<StateT>>()
+
+  /**
+   * 是否手动调用触发器
+   *
+   * - 为 true 时，不会调用 listeners 触发器，转为外部接管
+   * - 用于在跨线程通信时，处理异步更新
+   */
+  public takeOverDispatch = false
+
+  /**
+   * 自定义派发前的检查
+   *
+   * @param dispatchBatch 派发批次
+   * @param nextState 下一个状态
+   * @param options
+   *
+   * @returns 返回 false 可阻止状态更新
+   */
+  public beforeDispatch?: (
+    dispatchBatch: number,
+    nextState: Partial<StateT>,
+    options?: DispatchOptions<StateT>
+  ) => boolean | Partial<StateT>
+
+  /**
+   * 自定义派发后的回调
+   *
+   * @param changeState 变更的数据
+   */
+  public afterDispatch?: (changeState: Record<string, any>) => void
 
   /** 订阅状态 */
   private readonly subscribe = (listener: Listener, key: keyof StateT) => {
@@ -75,7 +110,7 @@ export class Store<StateT extends object> {
   public dispatch(nextState: Partial<StateT>, options?: DispatchOptions<StateT> | DispatchOptions<StateT>['onChanged']): void {
     const optionsH: DispatchOptions<StateT> = { ...this.defaultDispatchOptions }
     const changeKeys = Object.keys(nextState) as (keyof StateT)[]
-    const changeState: Partial<StateT> = {}
+    const changedState: Partial<StateT> = {}
 
     if (typeof options === 'function') {
       optionsH.onChanged = options
@@ -83,25 +118,55 @@ export class Store<StateT extends object> {
       Object.assign(optionsH, options)
     }
 
+    this.dispatchBatch++
+
+    if (this.beforeDispatch) {
+      const res = this.beforeDispatch(this.dispatchBatch, nextState, optionsH)
+      if (res === false) return
+      if (typeof res === 'object') Object.assign(nextState, res)
+    }
+
     changeKeys.forEach((key) => {
       const nextValue = nextState[key]
 
       if (typeof this.actions?.[key] === 'function') {
-        Object.assign(changeState, this.actions?.[key]?.(nextValue!, this.state))
+        Object.assign(changedState, this.actions?.[key]?.(nextValue!, this.state))
       } else if (optionsH.check) {
         const currentValue = this.state[key]
         if (nextValue !== currentValue) {
-          changeState[key] = nextValue
+          changedState[key] = nextValue
         }
       } else {
-        changeState[key] = nextValue
+        changedState[key] = nextValue
       }
     })
 
-    this.state = { ...this.state, ...changeState }
+    this.state = { ...this.state, ...changedState }
 
-    for (const realChangeKey in changeState) {
-      if (!Object.prototype.hasOwnProperty.call(changeState, realChangeKey)) {
+    if (this.takeOverDispatch) {
+      this.dispatchBatchOptionsMap.set(this.dispatchBatch, optionsH)
+    } else {
+      this.executeListeners(this.dispatchBatch, changedState, optionsH)
+    }
+  }
+
+  /**
+   * 调用触发器
+   *
+   * @param dispatchBatch
+   * @param changedState
+   * @param options
+   */
+  public executeListeners = (dispatchBatch: number, changedState: Partial<StateT>, options?: DispatchOptions<StateT>) => {
+    let optionsH = options
+
+    if (!optionsH) {
+      optionsH = this.dispatchBatchOptionsMap.get(dispatchBatch)
+      this.dispatchBatchOptionsMap.delete(dispatchBatch)
+    }
+
+    for (const realChangeKey in changedState) {
+      if (!Object.prototype.hasOwnProperty.call(changedState, realChangeKey)) {
         continue
       }
 
@@ -114,7 +179,13 @@ export class Store<StateT extends object> {
       }
     }
 
-    optionsH.onChanged?.(this.state)
+    if (optionsH) {
+      optionsH.onChanged?.(this.state)
+    } else {
+      console.warn(`dispatchBatch<${dispatchBatch}> error: can't find options`)
+    }
+
+    this.afterDispatch?.(changedState)
   }
 
   /** Store.dispatch 别名 */
