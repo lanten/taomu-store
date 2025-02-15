@@ -106,15 +106,14 @@ export class Store<StateT extends object> {
    *
    * @example store.dispatch({ state1: value1, state2: value2 })
    */
-  public dispatch(nextState: Partial<StateT>, options?: DispatchOptions<StateT>): void
-  public dispatch(nextState: Partial<StateT>, options?: DispatchOptions<StateT> | DispatchOptions<StateT>['onChanged']): void {
+  public dispatch(nextState: Partial<StateT>, options?: DispatchOptions<StateT> | ((state: StateT) => void)): void {
     const optionsH: DispatchOptions<StateT> = { ...this.defaultDispatchOptions }
     const changeKeys = Object.keys(nextState) as (keyof StateT)[]
     const changedState: Partial<StateT> = {}
 
     if (typeof options === 'function') {
       optionsH.onChanged = options
-    } else {
+    } else if (options) {
       Object.assign(optionsH, options)
     }
 
