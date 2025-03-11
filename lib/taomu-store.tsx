@@ -145,7 +145,7 @@ export class Store<StateT extends object> {
     if (this.takeOverDispatch) {
       this.dispatchBatchOptionsMap.set(this.dispatchBatchId, optionsH)
     } else {
-      this.executeListeners(this.dispatchBatchId, changedState, optionsH)
+      this.executeListeners(changedState, this.dispatchBatchId, optionsH)
     }
   }
 
@@ -156,10 +156,10 @@ export class Store<StateT extends object> {
    * @param changedState
    * @param options
    */
-  public executeListeners = (batchId: number, changedState: Partial<StateT>, options?: DispatchOptions<StateT>) => {
+  public executeListeners = (changedState: Partial<StateT>, batchId?: number, options?: DispatchOptions<StateT>) => {
     let optionsH = options
 
-    if (!optionsH) {
+    if (!optionsH && typeof batchId === 'number' && !isNaN(batchId)) {
       optionsH = this.dispatchBatchOptionsMap.get(batchId)
     }
 
@@ -183,7 +183,7 @@ export class Store<StateT extends object> {
       console.warn(`dispatchBatch<${batchId}> error: can't find options`)
     }
 
-    if (this.dispatchBatchOptionsMap.has(batchId)) {
+    if (batchId && this.dispatchBatchOptionsMap.has(batchId)) {
       this.dispatchBatchOptionsMap.delete(batchId)
     }
 
