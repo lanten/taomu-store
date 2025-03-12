@@ -140,8 +140,6 @@ export class Store<StateT extends object> {
       }
     })
 
-    this.state = { ...this.state, ...changedState }
-
     if (this.takeOverDispatch) {
       this.dispatchBatchOptionsMap.set(this.dispatchBatchId, optionsH)
     } else {
@@ -163,6 +161,8 @@ export class Store<StateT extends object> {
       optionsH = this.dispatchBatchOptionsMap.get(batchId)
     }
 
+    Object.assign(this.state, changedState)
+
     for (const realChangeKey in changedState) {
       if (!Object.prototype.hasOwnProperty.call(changedState, realChangeKey)) {
         continue
@@ -172,7 +172,6 @@ export class Store<StateT extends object> {
       if (listeners) {
         listeners.forEach((listener) => listener())
       } else {
-        // console.warn(`${String(key)} has no subscription list`)
         continue
       }
     }
