@@ -213,7 +213,8 @@ export class Store<StateT extends object> {
       // see: https://github.com/reactwg/react-18/discussions/86
       res[key] = React.useSyncExternalStore(
         (listener) => this.subscribe(listener, key),
-        () => this.getState(key)
+        () => this.getState(key), // 客户端渲染
+        () => this.getState(key) // 服务端渲染
       )
     })
 
